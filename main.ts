@@ -5,8 +5,14 @@
 // board, the dashboard data, the dashboard files, the screenshots,
 // and the dossier the make.fun gate checks.
 //
+//   node main.ts
 //   node main.ts --input /input/snapshot.json
 //   MAKEFUN_OUTPUT_DIR=out node main.ts --input /input/snapshot.json
+//
+// The input defaults to MAKEFUN_INPUT_DIR, then /input (a directory
+// means /input/snapshot.json); --input overrides it. The output
+// directory defaults to MAKEFUN_OUTPUT_DIR, then /output; --output
+// overrides it.
 //
 // Stdlib only, no network, deterministic: the same input writes the
 // same bytes every time. The output directory defaults to /output
@@ -39,14 +45,16 @@ function copyDir(src: string, dst: string): void {
 
 function main(): void {
   const args = process.argv.slice(2);
-  const input = flag(args, '--input');
-  if (input === null) {
-    throw new Error('usage: node main.ts --input /input/snapshot.json');
+  const inputArg = flag(args, '--input') ?? process.env.MAKEFUN_INPUT_DIR ?? '/input';
+  const inputFile = inputArg.endsWith('.json') ? inputArg : join(inputArg, 'snapshot.json');
+  if (!existsSync(inputFile)) {
+    console.error(`token radar: no snapshot at ${inputFile}: pass --input <snapshot.json|directory>, set MAKEFUN_INPUT_DIR, or mount the sealed /input`);
+    process.exit(2);
   }
-  const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+  const out = flag(args, '--output') ?? process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
   const root = dirname(fileURLToPath(import.meta.url));
 
-  const raw = JSON.parse(readFileSync(input, 'utf8'));
+  const raw = JSON.parse(readFileSync(inputFile, 'utf8'));
   const snapshot = parseSnapshot(raw);
   const { rows, data } = buildRadar(snapshot);
 
