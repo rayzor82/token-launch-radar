@@ -3,13 +3,80 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Token Radar: pre-token protocols ranked by implied value</title>
+<title>Token Radar — which pre-token protocols are worth farming</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<a class="skip" href="#board">Skip to the board</a>
-<main id="board" tabindex="-1" aria-busy="true"></main>
-<script src="../data.js"></script>
+<header>
+  <div>
+    <h1>Token Radar</h1>
+    <p class="sub">Which pre-token protocols are worth farming — ranked by implied value, not by TVL.</p>
+  </div>
+  <div class="meta" id="meta"></div>
+</header>
+
+<section class="kpis" aria-label="Headline numbers">
+  <div class="kpi"><div class="num" id="kpi-count"></div><div class="lbl">protocols ranked</div><div class="base" id="kpi-count-base"></div></div>
+  <div class="kpi"><div class="num" id="kpi-watch"></div><div class="lbl">watchlist ranked</div><div class="base">of 40 watched</div></div>
+  <div class="kpi"><div class="num" id="kpi-median"></div><div class="lbl">median implied value</div><div class="base" id="kpi-median-base"></div></div>
+  <div class="kpi"><div class="num" id="kpi-sum"></div><div class="lbl">total implied value</div><div class="base" id="kpi-sum-base"></div></div>
+  <div class="kpi"><div class="num" id="kpi-miss"></div><div class="lbl">out-of-sample miss</div><div class="base" id="kpi-miss-base"></div></div>
+  <div class="kpi"><div class="num" id="kpi-odds"></div><div class="lbl">launch odds, 2&ndash;4 yr</div><div class="base" id="kpi-odds-base"></div></div>
+</section>
+
+<section class="comp" aria-label="What happened to the 758 protocols">
+  <div class="compbar" id="compbar"></div>
+  <div class="complegend" id="complegend"></div>
+</section>
+
+<section class="filters" aria-label="Filters">
+  <input id="search" type="search" placeholder="Search protocols" aria-label="Search protocols">
+  <select id="cat" aria-label="Category"><option value="">All categories</option></select>
+  <select id="chain" aria-label="Chain"><option value="">All chains</option></select>
+  <label class="check"><input id="watch" type="checkbox"> Watchlist only</label>
+  <div class="tabs" role="tablist">
+    <button id="preTab" role="tab" aria-selected="true">Pre-token</button>
+    <button id="earlyTab" role="tab" aria-selected="false">Early finds</button>
+    <button id="liveTab" role="tab" aria-selected="false">Live tokens</button>
+  </div>
+</section>
+
+<div class="boardgrid">
+  <section class="tablewrap">
+    <div class="countline" id="countline"></div>
+    <div class="tablescroll">
+      <table id="board">
+        <thead>
+          <tr>
+            <th data-sort="rank">#</th>
+            <th data-sort="name">Protocol</th>
+            <th data-sort="tvl_usd">TVL</th>
+            <th data-sort="change_7d">7d</th>
+            <th data-sort="age_days">Age</th>
+            <th data-sort="implied_value_usd">Implied value</th>
+            <th data-sort="implied_p10_usd">Range</th>
+            <th data-sort="launch_odds">Odds</th>
+            <th data-sort="net">Net</th>
+            <th data-sort="verdict">Verdict</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="foot" id="matchCount"></p>
+    <p class="foot" id="note"></p>
+  </section>
+
+  <aside class="rail">
+    <section class="panel" id="method" aria-label="How a value is built"></section>
+    <section class="panel" id="validation" aria-label="Out-of-sample check"></section>
+    <section class="panel" id="bestfarms" aria-label="Best farms by net per hour"></section>
+  </aside>
+</div>
+
+<dialog id="detail"></dialog>
+
+<script src="data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
