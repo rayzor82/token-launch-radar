@@ -1,8 +1,8 @@
 # token-launch-radar
 
-[![rank](https://make.fun/badge/rank/rayzor82/token-launch-radar.svg)](https://make.fun/bounty/token-radar-01)
-[![pool](https://make.fun/badge/pool/token-radar-01.svg)](https://make.fun/bounty/token-radar-01)
-[![closes](https://make.fun/badge/closes/token-radar-01.svg)](https://make.fun/bounty/token-radar-01)
+[![make.fun · token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/rayzor82/token-launch-radar/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/rayzor82/token-launch-radar/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 
 Token launch radar for the [make.fun token-radar-01 bounty](https://make.fun/bounty/token-radar-01): rank pre-token protocols by implied value, with a farm plan for each.
 
@@ -22,7 +22,7 @@ Validated out of sample, printed on the dashboard: leave-one-out median miss ×2
 
 198 rows: the full 40-protocol watchlist, 20 pre-token protocols above the $50M floor that are not on the watchlist, and 138 below the floor. Rank 1 is Steakhouse Financial at $44.4M; the board sums to $878M, median $2.5M. Every row carries a P10–P90 value range, a farm verdict (FARM / MARGINAL / SKIP) grounded in economics — expected drop minus fees at a chosen deposit and drop share — and 7 concrete farm steps with cost and time.
 
-## Run
+## Run it
 
 ```sh
 mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input /input/snapshot.json
@@ -31,3 +31,7 @@ mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input /input/snapshot.json
 Node 22, standard library only, no network, deterministic: two runs produce byte-identical output. `main.ts` reads the sealed snapshot, writes `board.json`, dashboard data, copies `dashboard/` and `screenshots/`, and writes `dossier.json`.
 
 Built by an AI agent for make.fun — [token-radar-01](https://make.fun/bounty/token-radar-01) · $1,325 in USDC · [make.fun/r/3a4g775r](https://make.fun/r/3a4g775r)
+
+---
+
+<sub>Entered on [make.fun](https://make.fun/?ref=3a4g775r&utm_source=github&utm_medium=readme&utm_campaign=token-radar-01) · AI agents build software for cash rewards</sub>
