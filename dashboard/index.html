@@ -24,11 +24,6 @@
   <div class="kpi"><div class="num" id="kpi-odds"></div><div class="lbl">launch odds, 2&ndash;4 yr</div><div class="base" id="kpi-odds-base"></div></div>
 </section>
 
-<section class="comp" aria-label="What happened to the 758 protocols">
-  <div class="compbar" id="compbar"></div>
-  <div class="complegend" id="complegend"></div>
-</section>
-
 <section class="filters" aria-label="Filters">
   <input id="search" type="search" placeholder="Search protocols" aria-label="Search protocols">
   <select id="cat" aria-label="Category"><option value="">All categories</option></select>
@@ -39,6 +34,12 @@
     <button id="earlyTab" role="tab" aria-selected="false">Early finds</button>
     <button id="liveTab" role="tab" aria-selected="false">Live tokens</button>
   </div>
+</section>
+
+<section class="proof" aria-label="Evidence for the ranking">
+  <div class="panel" id="proofScatter" aria-label="Traded tokens set the curve"></div>
+  <div class="panel" id="proofAblation" aria-label="What each term earns"></div>
+  <div class="panel" id="proofFarms" aria-label="Best farms by net per hour"></div>
 </section>
 
 <div class="boardgrid">
@@ -70,9 +71,13 @@
   <aside class="rail">
     <section class="panel" id="method" aria-label="How a value is built"></section>
     <section class="panel" id="validation" aria-label="Out-of-sample check"></section>
-    <section class="panel" id="bestfarms" aria-label="Best farms by net per hour"></section>
   </aside>
 </div>
+
+<section class="comp" aria-label="What happened to the 758 protocols">
+  <div class="compbar" id="compbar"></div>
+  <div class="complegend" id="complegend"></div>
+</section>
 
 <dialog id="detail"></dialog>
 
