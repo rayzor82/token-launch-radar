@@ -1,4 +1,4 @@
-// Token Radar, program radar-4.
+// Token Radar, program radar-5.
 //
 // Reads the sealed snapshot, fits the value curve to its own traded
 // tokens, ranks every rankable pre-token protocol, and writes the
