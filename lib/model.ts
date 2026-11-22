@@ -1,4 +1,4 @@
-// Token Radar, model radar-4.
+// Token Radar, model radar-5.
 //
 // One sealed snapshot in, one ranked board out. The board ranks only
 // protocols that record no token, and it keeps the traded ones apart:
@@ -58,6 +58,21 @@
 //        still lose on 5-fold accuracy. Each rejected variant is
 //        printed on the dashboard with its own numbers.
 //
+//      Fit-set width was tested on this snapshot for radar-5:
+//      widening the mcap/TVL band 0.005-5 to 0.001-20 (85 to 91
+//      tokens) improves walk-forward x2.36 to x2.19 but worsens
+//      leave-one-out x2.72 to x3.25, so it is not kept; including
+//      the excluded categories (bridges, liquid staking, CEX)
+//      is worse on both tests (n=115: LOO x2.87, walk-forward
+//      x2.85; n=123: LOO x3.26, walk-forward x2.73); dropping the
+//      ratio filter entirely fails the board's own check, because
+//      the snapshot carries a negative market cap that poisons
+//      the fit. The band and the exclusions stay as radar-4 set
+//      them. A stronger-shrunk category factor (mean, n/(n+20),
+//      capped at 0.15 dex) was tested again and still worsens
+//      leave-one-out (x2.96 against x2.72) with no walk-forward
+//      gain, so it joins the rejected list below.
+//
 //   2. Launch odds. The share of the snapshot's protocols in the same
 //      age band that record a token, shrunk toward the snapshot's
 //      overall rate. It is a proxy, not a forecast: the snapshot
@@ -71,7 +86,7 @@
 //   how far the curve missed the traded tokens it had not seen.
 //
 // Farm economics. A farm is judged at a deposit the reader picks
-// ($10,000 by default) and a drop share (7% of the value if it
+// ($1,000 by default) and a drop share (7% of the value if it
 // launches, the reader can try 3.5% or 14%). The expected drop is
 // launch odds x drop share x value if it launches x deposit / TVL:
 // the farmer's slice of TVL. Fees are a $1.50 bridge or withdrawal
@@ -82,20 +97,22 @@
 // 12-week farm is an explicit cost, so the net is expected drop
 // minus fees minus T-bill income forgone. Break-even odds are the
 // launch odds at which the expected drop exactly repays fees plus
-// T-bill. The verdict compares the row's own launch odds with its
-// break-even odds: FARM when the odds are at least twice
-// break-even, so the farm pays even if the true odds are half the
-// estimate; MARGINAL when the odds cover break-even; otherwise
-// SKIP. An absolute break-even rule (farm when break-even odds are
-// at most 10%) was tested and dropped: the T-bill line puts a floor
-// under break-even that no row on this board can clear, so it
-// would call every row SKIP at any deposit. Every row also carries
-// its own plan deposit: the smallest ladder rung ($500 / $1,000 /
-// $2,500 / $5,000) that earns FARM, else the smallest that earns
-// MARGINAL, else the $500 minimum; plus the deposit where the farm
-// first pays (net zero) and the deposit where it first earns FARM.
-// Every number is labelled with the assumption behind it, on the
-// dashboard.
+// T-bill. The verdict follows the field's convention, at the
+// $1,000 default: FARM when the net is above zero (the odds cover
+// break-even); THIN when the expected drop beats the fees but not
+// fees plus T-bill; otherwise SKIP. ROBUST marks the rows whose
+// launch odds are at least twice break-even, so the farm pays even
+// if the true odds are half the estimate — that was radar-4's FARM
+// rule, kept as a badge rather than the verdict. An absolute
+// break-even rule (farm when break-even odds are at most 10%) was
+// tested and dropped: the T-bill line puts a floor under break-even
+// that no row on this board can clear, so it would call every row
+// SKIP at any deposit. Every row also carries its own plan deposit:
+// the smallest ladder rung ($500 / $1,000 / $2,500 / $5,000) that
+// earns FARM, else the smallest that earns THIN, else the $500
+// minimum; plus the deposit where the farm first pays (net zero)
+// and the deposit where it first earns ROBUST. Every number is
+// labelled with the assumption behind it, on the dashboard.
 
 /** One protocol as the sealed snapshot carries it: exactly ten fields. */
 export interface SnapshotProtocol {
@@ -121,7 +138,7 @@ export interface Snapshot {
 }
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-4';
+export const MODEL_VERSION = 'radar-5';
 
 /** The tenure factor's fixed shape: 1 - TENURE_A * exp(-age / TENURE_TAU). */
 export const TENURE_A = 0.6;
@@ -201,12 +218,14 @@ export interface FarmEconomics {
   netUsd: number;
   netPerHourUsd: number;
   breakEvenOdds: number;
-  verdict: 'FARM' | 'MARGINAL' | 'SKIP';
-  /** The row's own plan deposit: smallest ladder rung covering the fees twice over. */
+  verdict: 'FARM' | 'THIN' | 'SKIP';
+  /** True when the launch odds are at least twice break-even: the farm pays even if the true odds are half the estimate. */
+  robust: boolean;
+  /** The row's own plan deposit: smallest ladder rung earning FARM, else THIN, else the $500 minimum. */
   planDeposit: number;
   /** Deposit where the expected net first reaches zero; Infinity when it never pays. */
   paysFromUsd: number;
-  /** Deposit where the row first earns FARM; Infinity when no deposit reaches it. */
+  /** Deposit where the row first earns ROBUST; Infinity when no deposit reaches it. */
   farmFromUsd: number;
   hours: number;
   weeks: number;
@@ -277,7 +296,8 @@ export interface RadarRow {
   pays_from_usd: number;
   farm_from_usd: number;
   early_reason: string | null;
-  verdict: 'FARM' | 'MARGINAL' | 'SKIP';
+  verdict: 'FARM' | 'THIN' | 'SKIP';
+  robust: boolean;
   farm_steps: string[];
 }
 
@@ -320,7 +340,8 @@ export interface RadarData {
     impliedSumUsd: number;
     medianImpliedUsd: number;
     farm: number;
-    marginal: number;
+    thin: number;
+    robust: number;
     skip: number;
   };
   econDefaults: {
@@ -943,6 +964,26 @@ export function fitValueCurve(snapshot: Snapshot): FitResult {
     });
   }
 
+  // Category factor, stronger shrinkage (mean, n/(n+20), cap 0.15 dex).
+  {
+    const cat = measureMultiplier((p, b, pool) => {
+      const off = new Map<string, number>();
+      for (const cat of new Set(pool.map((q) => q.category ?? 'null'))) {
+        const members = pool.filter((q) => (q.category ?? 'null') === cat);
+        const res = members.map((q) => LOG10(q.mcap_usd!) - logValue(q, asOf, b));
+        const mean = res.reduce((s, x) => s + x, 0) / res.length;
+        off.set(cat, Math.max(-0.15, Math.min(0.15, mean * (members.length / (members.length + 20)))));
+      }
+      return off.get(p.category ?? 'null') ?? 0;
+    });
+    rejected.push({
+      name: 'category factor (mean, n/(n+20), cap 0.15 dex)',
+      looMiss: cat.loo,
+      walk5Miss: cat.walk5,
+      note: 'stronger shrinkage; still worsens leave-one-out, no walk-forward gain',
+    });
+  }
+
   // Ablation: what each term of the model earns. The size curve
   // alone is refitted without the tenure term, on the same tests.
   const ablation: AblationRow[] = [
@@ -1204,7 +1245,7 @@ export function tbillPerDollar(): number {
 
 /**
  * The plan deposit for a row: the smallest ladder rung that earns
- * FARM, else the smallest that earns MARGINAL, else the $500
+ * FARM, else the smallest that earns THIN, else the $500
  * minimum — never over-commit to a farm that does not pay. The
  * verdict only improves with the deposit, because the fixed fees
  * dilute, so the first rung earning a verdict is the smallest.
@@ -1219,7 +1260,7 @@ export function planDepositFor(
     if (farmVerdict(p, valueIfLaunchesUsd, launchOdds, rung, dropShare) === 'FARM') return rung;
   }
   for (const rung of PLAN_LADDER) {
-    if (farmVerdict(p, valueIfLaunchesUsd, launchOdds, rung, dropShare) === 'MARGINAL') return rung;
+    if (farmVerdict(p, valueIfLaunchesUsd, launchOdds, rung, dropShare) === 'THIN') return rung;
   }
   return PLAN_LADDER[0]!;
 }
@@ -1237,9 +1278,10 @@ export function breakEvenOdds(
 }
 
 /**
- * The farm verdict at a deposit, from the row's own launch odds
- * against its break-even odds: FARM when the odds are at least
- * twice break-even, MARGINAL when they cover it, otherwise SKIP.
+ * The farm verdict at a deposit, the field's convention: FARM when
+ * the expected drop beats fees plus the T-bill forgone (net above
+ * zero, i.e. the odds cover break-even); THIN when the expected
+ * drop beats the fees but not fees plus T-bill; otherwise SKIP.
  */
 export function farmVerdict(
   p: SnapshotProtocol,
@@ -1247,9 +1289,29 @@ export function farmVerdict(
   launchOdds: number,
   deposit: number,
   dropShare = 0.07,
-): 'FARM' | 'MARGINAL' | 'SKIP' {
+): 'FARM' | 'THIN' | 'SKIP' {
+  const fees = farmFees(p).total;
+  const k = (dropShare * valueIfLaunchesUsd) / Math.max(1, p.tvl_usd);
+  const expected = launchOdds * k * deposit;
   const be = breakEvenOdds(p, valueIfLaunchesUsd, deposit, dropShare);
-  return launchOdds >= 2 * be ? 'FARM' : launchOdds >= be ? 'MARGINAL' : 'SKIP';
+  if (launchOdds >= be) return 'FARM';
+  if (expected > fees) return 'THIN';
+  return 'SKIP';
+}
+
+/**
+ * ROBUST at a deposit: the launch odds are at least twice
+ * break-even, so the farm pays even if the true odds are half the
+ * estimate. This was radar-4's FARM rule, kept as a badge.
+ */
+export function isRobust(
+  p: SnapshotProtocol,
+  valueIfLaunchesUsd: number,
+  launchOdds: number,
+  deposit: number,
+  dropShare = 0.07,
+): boolean {
+  return launchOdds >= 2 * breakEvenOdds(p, valueIfLaunchesUsd, deposit, dropShare);
 }
 
 /** Farm economics at a deposit and a drop share. */
@@ -1257,7 +1319,7 @@ export function farmEconomics(
   p: SnapshotProtocol,
   valueIfLaunchesUsd: number,
   launchOdds: number,
-  deposit = 10_000,
+  deposit = 1_000,
   dropShare = 0.07,
 ): FarmEconomics {
   const fees = farmFees(p);
@@ -1269,6 +1331,7 @@ export function farmEconomics(
   const net = expectedDrop - fees.total - tbill;
   const breakEven = breakEvenOdds(p, valueIfLaunchesUsd, deposit, dropShare);
   const verdict = farmVerdict(p, valueIfLaunchesUsd, launchOdds, deposit, dropShare);
+  const robust = isRobust(p, valueIfLaunchesUsd, launchOdds, deposit, dropShare);
   const margin = slicePerDollar - c;
   const paysFrom = margin > 0 ? fees.total / margin : Number.POSITIVE_INFINITY;
   const farmFrom =
@@ -1285,6 +1348,7 @@ export function farmEconomics(
     netPerHourUsd: net / FARM_HOURS,
     breakEvenOdds: breakEven,
     verdict,
+    robust,
     planDeposit: planDepositFor(p, valueIfLaunchesUsd, launchOdds, dropShare),
     paysFromUsd: paysFrom,
     farmFromUsd: farmFrom,
@@ -1535,11 +1599,12 @@ export function buildRadar(snapshot: Snapshot): { rows: BoardRow[]; data: RadarD
       impliedSumUsd: board.reduce((s, r) => s + r.implied_value_usd, 0),
       medianImpliedUsd: median(sortedImplied),
       farm: board.filter((r) => r.economics.verdict === 'FARM').length,
-      marginal: board.filter((r) => r.economics.verdict === 'MARGINAL').length,
+      thin: board.filter((r) => r.economics.verdict === 'THIN').length,
+      robust: board.filter((r) => r.economics.robust).length,
       skip: board.filter((r) => r.economics.verdict === 'SKIP').length,
     },
     econDefaults: {
-      deposit: 10_000,
+      deposit: 1_000,
       dropShare: 0.07,
       bridgeUsd: BRIDGE_LEG_USD,
       txCount: FARM_TX_COUNT,
@@ -1578,6 +1643,7 @@ export function buildRadar(snapshot: Snapshot): { rows: BoardRow[]; data: RadarD
       farm_from_usd: r.economics.farmFromUsd,
       early_reason: r.early_reason,
       verdict: r.economics.verdict,
+      robust: r.economics.robust,
       farm_steps: r.farm_steps,
     })),
     live,
